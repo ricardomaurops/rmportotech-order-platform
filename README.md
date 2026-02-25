@@ -76,6 +76,7 @@ This project demonstrates:
 
 ```bash
 docker compose up
+----
 
 ## 📚 Documentation
 
