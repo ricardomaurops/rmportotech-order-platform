@@ -76,3 +76,7 @@ This project demonstrates:
 
 ```bash
 docker compose up
+
+## 📚 Documentation
+
+See the [docs folder](./docs) for detailed documentation.
