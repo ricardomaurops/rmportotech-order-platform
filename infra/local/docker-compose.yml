@@ -1,0 +1,173 @@
+version: "3.9"
+
+networks:
+  rmpt-net:
+
+volumes:
+  postgres_data:
+  grafana_data:
+
+services:
+  # -----------------------------
+  # Kafka (single-node) - KRaft
+  # -----------------------------
+  kafka:
+    image: apache/kafka:3.7.1
+    container_name: rmpt-kafka
+    networks: [ rmpt-net ]
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft (sem Zookeeper)
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      # Listeners: interno (containers) + host (PC) + controller
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+
+      # Dev-friendly
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: "1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # -----------------------------
+  # PostgreSQL
+  # -----------------------------
+  postgres:
+    image: postgres:16
+    container_name: rmpt-postgres
+    networks: [rmpt-net]
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=rmpt
+      - POSTGRES_USER=rmpt
+      - POSTGRES_PASSWORD=rmpt
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rmpt -d rmpt"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # -----------------------------
+  # DynamoDB Local
+  # -----------------------------
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: rmpt-dynamodb
+    networks: [rmpt-net]
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # -----------------------------
+  # OpenTelemetry Collector
+  # -----------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.0
+    container_name: rmpt-otel-collector
+    networks: [rmpt-net]
+    ports:
+      # OTLP gRPC/HTTP (apps send traces/metrics/logs here)
+      - "4317:4317"
+      - "4318:4318"
+      # Prometheus scrape endpoint (collector exports metrics here)
+      - "8889:8889"
+      # Collector internal metrics
+      - "8888:8888"
+    volumes:
+      - ./otel/otel-collector.yml:/etc/otelcol-contrib/config.yml:ro
+    command: ["--config=/etc/otelcol-contrib/config.yml"]
+    depends_on:
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+
+  # -----------------------------
+  # Prometheus
+  # -----------------------------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: rmpt-prometheus
+    networks: [rmpt-net]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  # -----------------------------
+  # Grafana
+  # -----------------------------
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: rmpt-grafana
+    networks: [rmpt-net]
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+
+  # -----------------------------
+  # Tempo (tracing)
+  # -----------------------------
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: rmpt-tempo
+    networks: [rmpt-net]
+    ports:
+      - "3200:3200"   # Tempo HTTP
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo.yml:ro
+    command: ["-config.file=/etc/tempo.yml"]
+
+  # -----------------------------
+  # Loki (logs)
+  # -----------------------------
+  loki:
+    image: grafana/loki:3.1.0
+    container_name: rmpt-loki
+    networks: [rmpt-net]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/config.yml:ro
+    command: ["-config.file=/etc/loki/config.yml"]
