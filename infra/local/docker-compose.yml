@@ -52,7 +52,7 @@ services:
     container_name: rmpt-postgres
     networks: [rmpt-net]
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_DB=rmpt
       - POSTGRES_USER=rmpt

@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://127.0.0.1:5433/rmpt
+    username: rmpt
+    password: rmpt
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  sql:
+    init:
+      mode: never
+
+logging:
+  level:
+    com.zaxxer.hikari: DEBUG
+    org.hibernate.engine.jdbc.env.internal: DEBUG
