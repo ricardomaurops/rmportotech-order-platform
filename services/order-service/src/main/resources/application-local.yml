@@ -36,4 +36,10 @@ logging:
     org.hibernate.engine.jdbc.env.internal: DEBUG
     org.springframework.jdbc.datasource: DEBUG
 
-
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui
+    operationsSorter: method
+    tagsSorter: alpha
