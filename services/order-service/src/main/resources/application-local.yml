@@ -17,6 +17,19 @@ spring:
     init:
       mode: never
 
+  kafka:
+    bootstrap-servers: 127.0.0.1:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
+rmpt:
+  kafka:
+    topic:
+      orders: orders.events
 logging:
   level:
     com.zaxxer.hikari: TRACE
