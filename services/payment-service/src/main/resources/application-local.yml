@@ -1,22 +1,31 @@
-server:
-  port: 8082
-
 spring:
-  application:
-    name: payment-service
-  profiles:
-    active: local
+  server:
+    port: 8083
 
-  kafka:
-    bootstrap-servers: 127.0.0.1:9092
-    consumer:
-      group-id: payment-service
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    listener:
-      ack-mode: manual
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://127.0.0.1:5432/rmpt
+    username: rmpt
+    password: rmpt
+
+    jpa:
+      hibernate:
+        ddl-auto: update
+      properties:
+        hibernate:
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          format_sql: true
+
+    kafka:
+      bootstrap-servers: 127.0.0.1:9092
+      consumer:
+        group-id: payment-service
+        auto-offset-reset: earliest
+        enable-auto-commit: false
+        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      listener:
+        ack-mode: manual
 rmpt:
   kafka:
     topic:

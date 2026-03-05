@@ -1,6 +1,8 @@
 package com.rmportotech.orders.infrastructure.outbox;
 
 import com.rmportotech.orders.adapters.out.persistence.OutboxJpaRepository;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,6 +10,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class OutboxPublisherJob {
@@ -32,9 +36,15 @@ public class OutboxPublisherJob {
         for (var e : pending) {
             try {
                 var key = e.getAggregateId().toString();
+                var headers = new RecordHeaders();
+                headers.add("eventId", e.getId().toString().getBytes(StandardCharsets.UTF_8));
+                headers.add("eventType", e.getEventType().getBytes(StandardCharsets.UTF_8));
+
+                var record = new ProducerRecord<String, String>(ordersTopic, null, key, e.getPayload(), headers);
 
                 // Envia e espera ack (sincrono) para garantir "SENT" só quando publicou
-                kafkaTemplate.send(ordersTopic, key, e.getPayload()).get();
+                kafkaTemplate.send(record).get();
+                e.markSent();
 
                 log.info("OUTBOX published eventId={} topic={} key={} type={}",
                         e.getId(), ordersTopic, key, e.getEventType());
