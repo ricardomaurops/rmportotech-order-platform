@@ -1,70 +1,127 @@
-# Event Contracts
+# Contratos de Eventos
 
-All events follow this base structure:
+Todos os eventos Kafka do sistema seguem a mesma estrutura de cabeçalhos:
 
-{
-  "eventId": "UUID",
-  "eventType": "string",
-  "eventVersion": "v1",
-  "occurredAt": "timestamp",
-  "correlationId": "UUID",
-  "payload": {}
-}
+**Headers obrigatórios:**
+```
+eventId:   <UUID>           ← chave de idempotência
+eventType: <string>         ← tipo do evento
+```
+
+**Chave da mensagem (message key):** ID do agregado de origem (ex: orderId, paymentId)
 
 ---
 
 ## OrderCreated
 
-Topic:
-rmpt.orders.v1.order-created
+Publicado pelo `order-service` ao criar um novo pedido.
 
-Payload:
-- orderId
-- items
-- totalAmount
-- createdAt
+**Tópico:** `orders.events`
+**Chave:** `orderId` (UUID)
+
+**Headers:**
+```
+eventId:   550e8400-e29b-41d4-a716-446655440001
+eventType: OrderCreated
+```
+
+**Payload (JSON):**
+```json
+{
+  "orderId": "550e8400-e29b-41d4-a716-446655440000",
+  "totalAmount": 150.00
+}
+```
+
+**Consumidores:**
+- `payment-service` (group-id: `payment-service`)
+- `inventory-service` (planejado)
 
 ---
 
 ## PaymentApproved
 
-Topic:
-rmpt.payments.v1.payment-approved
+Publicado pelo `payment-service` ao aprovar um pagamento.
 
-Payload:
-- orderId
-- paymentId
-- approvedAt
+**Tópico:** `payments.events`
+**Chave:** `paymentId` (UUID)
+
+**Headers:**
+```
+eventId:   550e8400-e29b-41d4-a716-446655440002
+eventType: PaymentApproved
+```
+
+**Payload (JSON):**
+```json
+{
+  "orderId": "550e8400-e29b-41d4-a716-446655440000",
+  "paymentId": "550e8400-e29b-41d4-a716-446655440003",
+  "approvedAt": "2025-01-10T12:00:05Z"
+}
+```
+
+**Consumidores:**
+- `inventory-service` (planejado)
+- `notification-service` (planejado)
 
 ---
 
 ## PaymentRejected
 
-Topic:
-rmpt.payments.v1.payment-rejected
+Publicado pelo `payment-service` ao rejeitar um pagamento (a implementar).
 
-Payload:
-- orderId
-- reason
+**Tópico:** `payments.events`
+
+**Payload (JSON):**
+```json
+{
+  "orderId": "550e8400-e29b-41d4-a716-446655440000",
+  "reason": "INSUFFICIENT_FUNDS"
+}
+```
 
 ---
 
 ## StockReserved
 
-Topic:
-rmpt.inventory.v1.stock-reserved
+Publicado pelo `inventory-service` (planejado).
 
-Payload:
-- orderId
-- reservationId
+**Tópico:** `rmpt.inventory.v1.stock-reserved`
+
+**Payload:**
+```json
+{
+  "orderId": "...",
+  "reservationId": "..."
+}
+```
 
 ---
 
 ## StockFailed
 
-Topic:
-rmpt.inventory.v1.stock-failed
+Publicado pelo `inventory-service` quando não há estoque disponível (planejado).
 
-Payload:
-- orderId
-- reason
+**Tópico:** `rmpt.inventory.v1.stock-failed`
+
+**Payload:**
+```json
+{
+  "orderId": "...",
+  "reason": "OUT_OF_STOCK"
+}
+```
+
+---
+
+## Notas de Implementação
+
+### Idempotência
+O campo `eventId` do header é a chave de idempotência. Cada consumidor deve registrar o `eventId` em uma tabela `processed_events` antes de processar o evento. Se o INSERT falhar por `UNIQUE constraint violation`, a mensagem já foi processada e deve ser descartada com ack.
+
+### Serialização
+Todos os payloads são serializados como **JSON string** (StringSerializer/StringDeserializer). Não há uso de Avro ou Schema Registry no momento.
+
+### Versionamento
+Os tópicos do order-service e payment-service ainda não possuem versionamento no nome (`orders.events`, `payments.events`). Os tópicos de inventory e notification seguirão o padrão `rmpt.{domain}.v1.{event-type}`.

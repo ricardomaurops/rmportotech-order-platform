@@ -1,23 +1,36 @@
-# Requirements
+# Requisitos
 
-## Functional Requirements
+## Requisitos Funcionais
 
-FR-01 Create Order
-FR-02 Retrieve Order by ID
-FR-03 Process Payment
-FR-04 Reserve Inventory
-FR-05 Publish domain events
-FR-06 Notify order status updates
+| ID    | Descrição                                                               | Status         |
+|-------|-------------------------------------------------------------------------|----------------|
+| FR-01 | Criar pedido via API REST com valor total                               | Implementado   |
+| FR-02 | Consultar pedido por ID                                                 | Implementado   |
+| FR-03 | Processar pagamento ao receber evento OrderCreated                      | Implementado   |
+| FR-04 | Reservar estoque ao receber evento OrderCreated                         | Planejado      |
+| FR-05 | Publicar eventos de domínio no Kafka de forma confiável                 | Implementado   |
+| FR-06 | Notificar status do pedido ao cliente                                   | Planejado      |
 
 ---
 
-## Non-Functional Requirements
+## Requisitos Não-Funcionais
 
-NFR-01 Event-driven communication via Kafka
-NFR-02 Idempotent event consumption
-NFR-03 Outbox pattern for reliable event publishing
-NFR-04 Structured logging
-NFR-05 Distributed tracing
-NFR-06 Metrics exposure
-NFR-07 Integration tests with Testcontainers
-NFR-08 Cloud-ready containerized services
+| ID     | Descrição                                                               | Status         |
+|--------|-------------------------------------------------------------------------|----------------|
+| NFR-01 | Comunicação assíncrona entre serviços via Apache Kafka                  | Implementado   |
+| NFR-02 | Consumo idempotente de eventos (sem processamento duplicado)            | Implementado   |
+| NFR-03 | Outbox Pattern para publicação confiável de eventos                     | Implementado   |
+| NFR-04 | Logs estruturados em JSON com correlação por eventId                    | Implementado   |
+| NFR-05 | Rastreamento distribuído via OpenTelemetry                              | Configurado    |
+| NFR-06 | Exposição de métricas no formato Prometheus                             | Implementado   |
+| NFR-07 | Testes de integração com Testcontainers                                 | Planejado      |
+| NFR-08 | Serviços containerizados e prontos para cloud (AWS ECS)                 | Em andamento   |
+
+---
+
+## Decisões de Design Relacionadas
+
+- **NFR-02 → Outbox Pattern**: eventos são gravados na mesma transação do domínio, evitando perda em caso de falha
+- **NFR-02 → processed_events**: constraint `UNIQUE(event_id)` impede que mensagens reentregues pelo Kafka gerem processamento duplo
+- **NFR-01 → ACK Manual**: o offset do Kafka só é confirmado após processamento bem-sucedido, garantindo at-least-once
+- **NFR-03 + NFR-04**: logs incluem eventId dos headers Kafka para correlação entre serviços

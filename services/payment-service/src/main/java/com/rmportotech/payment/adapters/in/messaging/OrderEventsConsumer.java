@@ -1,9 +1,6 @@
 package com.rmportotech.payment.adapters.in.messaging;
 
-import com.rmportotech.payment.adapters.out.persistence.PaymentEntity;
-import com.rmportotech.payment.adapters.out.persistence.PaymentJpaRepository;
-import com.rmportotech.payment.adapters.out.persistence.ProcessedEventEntity;
-import com.rmportotech.payment.adapters.out.persistence.ProcessedEventJpaRepository;
+import com.rmportotech.payment.adapters.out.persistence.*;
 import com.rmportotech.payment.domain.model.PaymentStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +25,13 @@ public class OrderEventsConsumer {
 
     private final PaymentJpaRepository paymentRepository;
     private final ProcessedEventJpaRepository processedEventRepository;
+    private final OutboxJpaRepository outboxRepository;
 
     public OrderEventsConsumer(PaymentJpaRepository paymentRepository,
-                               ProcessedEventJpaRepository processedEventRepository) {
+                               ProcessedEventJpaRepository processedEventRepository, OutboxJpaRepository outboxRepository) {
         this.paymentRepository = paymentRepository;
         this.processedEventRepository = processedEventRepository;
+        this.outboxRepository = outboxRepository;
     }
 
     @KafkaListener(
@@ -85,8 +84,21 @@ public class OrderEventsConsumer {
 
         paymentRepository.save(payment);
 
+        String eventType = "PaymentApproved";
+
+        outboxRepository.save(new OutboxEventEntity(
+                UUID.randomUUID(),
+                "PAYMENT",
+                payment.getId(),
+                eventType,
+                payload,
+                "PENDING",
+                Instant.now()
+        ));
+
         log.info("PAYMENT processed eventId={} saved paymentId={} orderId={}",
                 eventId, payment.getId(), orderId);
+
     }
 
     private UUID resolveEventId(byte[] header) {

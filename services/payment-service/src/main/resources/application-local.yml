@@ -31,3 +31,4 @@ rmpt:
   kafka:
     topic:
       orders: orders.events
+      payments: payments.events
