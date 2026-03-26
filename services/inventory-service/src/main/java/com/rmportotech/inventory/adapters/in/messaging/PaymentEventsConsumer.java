@@ -1,6 +1,9 @@
 package com.rmportotech.inventory.adapters.in.messaging;
 
-import com.rmportotech.inventory.adapters.out.persistence.*;
+import com.rmportotech.inventory.adapters.out.persistence.ProcessedEventEntity;
+import com.rmportotech.inventory.adapters.out.persistence.ProcessedEventRepository;
+import com.rmportotech.inventory.domain.model.StockReservation;
+import com.rmportotech.inventory.domain.ports.StockReservationStore;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.messaging.handler.annotation.Header;
@@ -14,13 +17,12 @@ import java.util.UUID;
 @Component
 public class PaymentEventsConsumer {
 
-    private final StockReservationRepository reservationRepository;
+    private final StockReservationStore stockReservationStore;
     private final ProcessedEventRepository processedEventRepository;
 
-    public PaymentEventsConsumer(
-            StockReservationRepository reservationRepository,
-            ProcessedEventRepository processedEventRepository) {
-        this.reservationRepository = reservationRepository;
+    public PaymentEventsConsumer(StockReservationStore stockReservationStore,
+                                 ProcessedEventRepository processedEventRepository) {
+        this.stockReservationStore = stockReservationStore;
         this.processedEventRepository = processedEventRepository;
     }
 
@@ -29,11 +31,10 @@ public class PaymentEventsConsumer {
             groupId = "inventory-service",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void onMessage(
-            String payload,
-            @Header(name = "eventId") byte[] eventIdHeader,
-            @Header(name = "kafka_receivedMessageKey") String key,
-            Acknowledgment ack) {
+    public void onMessage(String payload,
+                          @Header(name = "eventId") byte[] eventIdHeader,
+                          @Header(name = "kafka_receivedMessageKey") String key,
+                          Acknowledgment ack) {
 
         UUID eventId = UUID.fromString(new String(eventIdHeader, StandardCharsets.UTF_8));
         UUID orderId = UUID.fromString(key);
@@ -59,12 +60,6 @@ public class PaymentEventsConsumer {
                 )
         );
 
-        reservationRepository.save(
-                new StockReservationEntity(
-                        UUID.randomUUID(),
-                        orderId,
-                        Instant.now()
-                )
-        );
+        stockReservationStore.save(StockReservation.create(orderId));
     }
 }

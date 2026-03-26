@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/rmpt_inventory
+    username: rmpt
+    password: rmpt
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  kafka:
+    bootstrap-servers: 127.0.0.1:9092
+    consumer:
+      group-id: inventory-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: manual
+
+rmpt:
+  kafka:
+    topic:
+      payments: payments.events
+
+  dynamodb:
+    endpoint: http://127.0.0.1:8000
+    region: us-east-1
+    table:
+      stock-reservations: stock_reservations

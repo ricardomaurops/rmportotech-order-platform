@@ -5,18 +5,22 @@ import java.util.UUID;
 
 public class StockReservation {
 
-    private final UUID id;
+    private final UUID reservationId;
     private final UUID orderId;
     private final Instant createdAt;
 
-    public StockReservation(UUID id, UUID orderId, Instant createdAt) {
-        this.id = id;
+    public StockReservation(UUID reservationId, UUID orderId, Instant createdAt) {
+        this.reservationId = reservationId;
         this.orderId = orderId;
         this.createdAt = createdAt;
     }
 
-    public UUID getId() {
-        return id;
+    public static StockReservation create(UUID orderId) {
+        return new StockReservation(UUID.randomUUID(), orderId, Instant.now());
+    }
+
+    public UUID getReservationId() {
+        return reservationId;
     }
 
     public UUID getOrderId() {
