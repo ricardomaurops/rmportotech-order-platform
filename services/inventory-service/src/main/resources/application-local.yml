@@ -28,6 +28,7 @@ rmpt:
   kafka:
     topic:
       payments: payments.events
+      inventory: inventory.events
 
   dynamodb:
     endpoint: http://127.0.0.1:8000
